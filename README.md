@@ -12,7 +12,7 @@ import (
     "fmt"
 
     "github.com/vela-public/lua"
-    "layeh.com/gopher-luar"
+	"github.com/vela-public/deflect"
 )
 
 type User struct {
@@ -40,7 +40,7 @@ func Example_basic() {
     u := &User{
         Name: "Tim",
     }
-    L.SetGlobal("u", luar.New(L, u))
+    L.SetGlobal("u", deflect.(L, u))
     if err := L.DoString(script); err != nil {
         panic(err)
     }
