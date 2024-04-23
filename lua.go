@@ -87,6 +87,120 @@ import (
 //
 // All other values (complex numbers, unsafepointer, uintptr) are converted to
 // *lua.LUserData with its Value field set to value and no custom metatable.
+
+type LVFace interface {
+	ToLValue() lua.LValue
+}
+
+func ToLValueL(L *lua.LState, obj interface{}) lua.LValue {
+	switch rv := obj.(type) {
+	case nil:
+		return lua.LNil
+
+	case bool:
+		return lua.LBool(rv)
+	case float64:
+		return lua.LNumber(rv)
+	case float32:
+		return lua.LNumber(rv)
+
+	case int8:
+		return lua.LInt(rv)
+	case int16:
+		return lua.LInt(rv)
+	case int32:
+		return lua.LNumber(rv)
+	case int:
+		return lua.LInt(rv)
+	case int64:
+		return lua.LNumber(rv)
+
+	case uint8:
+		return lua.LInt(rv)
+	case uint16:
+		return lua.LInt(rv)
+	case uint32:
+		return lua.LNumber(rv)
+	case uint:
+		return lua.LInt(rv)
+	case uint64:
+		return lua.LNumber(rv)
+
+	case []byte:
+		return lua.B2L(rv)
+
+	case string:
+		return lua.S2L(rv)
+
+	case []string:
+		lv := obj.([]string)
+		n := len(lv)
+
+		tab := L.CreateTable(n, 0)
+		for i := 0; i < n; i++ {
+			tab.RawSetInt(i+1, lua.S2L(lv[i]))
+		}
+
+		return tab
+
+	case []interface{}:
+		n := len(rv)
+		tab := L.CreateTable(n, 0)
+		if n == 0 {
+			return tab
+		}
+
+		for i := 0; i < n; i++ {
+			llv := ToLValueL(L, rv[i])
+			tab.RawSetInt(i+1, llv)
+		}
+
+		return tab
+
+	case map[string]interface{}:
+		n := len(rv)
+		tab := lua.NewMap(n, false)
+		if n == 0 {
+			return tab
+		}
+
+		for key, val := range rv {
+			tab.Set(key, ToLValueL(L, val))
+		}
+
+		return tab
+	case func():
+		return lua.NewFunction(func(co *lua.LState) int {
+			rv()
+			return 0
+		})
+
+	case func() error:
+		return lua.NewFunction(func(co *lua.LState) int {
+			if e := rv(); e != nil {
+				L.Push(lua.S2L(e.Error()))
+				return 1
+			}
+			return 0
+		})
+
+	case lua.LValue:
+		return rv
+
+	case lua.LGFunction:
+		return lua.NewFunction(rv)
+
+	case LVFace:
+		return rv.ToLValue()
+
+	case error:
+		return lua.S2L(rv.Error())
+
+	default:
+		return New(L, obj)
+	}
+}
+
 func New(L *lua.LState, value interface{}) lua.LValue {
 	if value == nil {
 		return lua.LNil
